@@ -1,3 +1,3 @@
 # cursePackDownloader
-##Required:
+## Required:
 `requests`

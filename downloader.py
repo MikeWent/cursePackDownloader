@@ -9,7 +9,7 @@ def download(url):
 	response=requests.get(url.replace("\n",""),allow_redirects=True)
 	new_url=response.url
 	filename=unquote(new_url.split("/")[-1])
-	full_file_path=modpack_path+"/mods"+"/"+filename
+	full_file_path=modpack_path+"/minecraft/mods"+"/"+filename
 	with open(full_file_path,"wb") as save_file:
 		save_file.write(response.content)
 		print(filename+" downloaded")
@@ -24,15 +24,15 @@ while is_path_correct!=True:
 		is_path_correct=True
 	else:
 		print("Incorrect path\n")
+		
+#Creating dirs if not exists
+if not os.path.exists(modpack_path+"/minecraft"):
+	os.makedirs(modpack_path+"/minecraft")		
 	
 #Moving overrides
 folders=os.listdir(modpack_path+"/overrides")
 for folder in folders:
-	shutil.move(modpack_path+"/overrides"+"/"+folder,modpack_path)
-
-#Creating dirs if not exists
-if not os.path.exists(modpack_path+"/mods"):
-	os.makedirs(modpack_path+"/mods")
+	shutil.move(modpack_path+"/overrides"+"/"+folder,modpack_path+"/minecraft")
 
 #Reading manifest.json
 manifest_path=modpack_path+"/manifest.json"

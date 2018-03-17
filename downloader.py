@@ -1,55 +1,59 @@
+import json,argparse,os,shutil 
+from urllib.parse   import unquote_plus
+from urllib.request import urlopen
 from multiprocessing.pool import Pool
-from urllib.parse import unquote
-import os,shutil,json,requests
 
-mod_count=0
+mods_count=int()
 
+#getting args
+parser=argparse.ArgumentParser()
+parser.add_argument("-f","--file",default="Nothing",help="Path to modpack folder\nwith (maybe..) overrides and manifest.json")
+parser.add_argument("-p","--process_count",default=5,help="Count of workers (processes) for multiprocessing downloading")
 
-def download(url):
-	response=requests.get(url.replace("\n",""),allow_redirects=True)
-	new_url=response.url
-	filename=unquote(new_url.split("/")[-1])
-	full_file_path=modpack_path+"/minecraft/mods"+"/"+filename
-	with open(full_file_path,"wb") as save_file:
-		save_file.write(response.content)
-		print(filename+" downloaded")
-	#work fine
-		
-#Reading unpacked modpack folder path
-is_path_correct=False
-while is_path_correct!=True:
-	print("Enter full path of \nMinecraft modpack folder: ")
-	modpack_path=str(input())
-	if os.path.exists(modpack_path)==True:
-		is_path_correct=True
-	else:
-		print("Incorrect path\n")
-		
-#Creating dirs if not exists
-if not os.path.exists(modpack_path+"/minecraft"):
-	os.makedirs(modpack_path+"/minecraft")		
-	
-#Moving overrides
-folders=os.listdir(modpack_path+"/overrides")
-for folder in folders:
-	shutil.move(modpack_path+"/overrides"+"/"+folder,modpack_path+"/minecraft")
+args=parser.parse_args()
+pcount=int(args.process_count)
 
-#Reading manifest.json
+if not os.path.exists(args.file):
+	print("Wrong path")
+	exit()
+
+modpack_path=args.file
+
+#parsing manifest.json	
 manifest_path=modpack_path+"/manifest.json"
-with open(manifest_path,"r") as json_file:
-	manifest=json.load(json_file)
-	
-#Creating urlcache file for worker-processses
-with open(modpack_path+"/urlcache","w") as urlcache:
-	for dependency in manifest["files"]:
-		url=(("http://minecraft.curseforge.com/projects/%s/files/%s/download" % (dependency["projectID"],dependency["fileID"])))
-		urlcache.write(url+"\n")
-		mod_count+=1
+if not os.path.exists(manifest_path):
+	print("Modpack folder doesn't contains manifest.json file")
+	exit()
 
-#Downloading mods
-with open(modpack_path+"/urlcache","r") as urllist:
-		urllist_iter=urllist.readlines()
-		with Pool(processes=4) as pool:
-			pool.map(download,urllist_iter)	
-			
-print("\n\nDone.")
+with open(manifest_path,"r") as manifest_obj:
+	manifest=json.load(manifest_obj)
+
+#creating temporary variable for urls
+url_tmp=[]
+for dependency in manifest["files"]:
+	mods_count+=1
+	url_tmp+=["http://minecraft.curseforge.com/projects/%s/files/%s/download" % (dependency["projectID"],dependency["fileID"])]
+
+#move overrides if exists 
+if not os.path.exists(modpack_path+"/minecraft"):
+	os.makedirs(modpack_path+"/minecraft")
+
+if os.path.exists(modpack_path+"/overrides"):
+	files=os.listdir(modpack_path+"/overrides")
+	for f in files:
+		shutil.move(modpack_path+"/overrides/"+f,modpack_path+"/minecraft")	
+	
+def download(url):
+	response=urlopen(url)
+	filename=unquote_plus(response.geturl()).split("/")[-1]
+	with open(modpack_path+"/minecraft/mods/"+filename,"wb") as out_file:
+		shutil.copyfileobj(response,out_file)
+	print(filename)
+
+
+
+with Pool(processes=pcount) as pool:
+	pool.map(download,url_tmp)
+
+print("\nDone")
+
